@@ -25,9 +25,7 @@ impl std::fmt::Display for SatEntry {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let variables = 9 * 9 * 9; // 9 squares, 9 entries each, 9 possible values each
-
+fn parse_input() -> Result<Vec<SatEntry>, Box<dyn std::error::Error>> {
     let mut buffer = String::new();
     let stdin = io::stdin();
 
@@ -52,9 +50,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 })
                 .collect::<Vec<_>>(),
         );
-        println!("{}", SatEntry::Comment(buffer.clone()));
         buffer.clear();
     }
+
+    Ok(initialnums)
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let variables = 9 * 9 * 9; // 9 squares, 9 entries each, 9 possible values each
+
+    let initialnums = parse_input()?;
 
     let single_num_constraints: Vec<_> = (0..81)
         .flat_map(|cell| single_constraint(cell * 9 + 1))
