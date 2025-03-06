@@ -52,6 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 })
                 .collect::<Vec<_>>(),
         );
+        println!("{}", SatEntry::Comment(buffer.clone()));
         buffer.clear();
     }
 
