@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, ops::Index};
 
 #[derive(Debug)]
 enum SatEntry {
@@ -7,10 +7,38 @@ enum SatEntry {
     OrLine(Vec<isize>),
 }
 
-const ORDER: usize = 3;
-const ORDER_2: usize = ORDER * ORDER;
-const ORDER_3: usize = ORDER_2 * ORDER;
-const ORDER_4: usize = ORDER_3 * ORDER;
+#[derive(Clone, Copy)]
+struct Ordah {
+    order_1: usize,
+    order_2: usize,
+    order_3: usize,
+    order_4: usize,
+}
+
+impl Ordah {
+    fn new(order: usize) -> Self {
+        Ordah {
+            order_1: order,
+            order_2: order * order,
+            order_3: order * order * order,
+            order_4: order * order * order * order,
+        }
+    }
+}
+
+impl Index<usize> for Ordah {
+    type Output = usize;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            1 => &self.order_1,
+            2 => &self.order_2,
+            3 => &self.order_3,
+            4 => &self.order_4,
+            _ => panic!("can't index to this order"),
+        }
+    }
+}
 
 impl std::fmt::Display for SatEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -30,17 +58,17 @@ impl std::fmt::Display for SatEntry {
     }
 }
 
-fn parse_input() -> Result<Vec<SatEntry>, Box<dyn std::error::Error>> {
+fn parse_input(order: Ordah) -> Result<Vec<SatEntry>, Box<dyn std::error::Error>> {
     let mut buffer = String::new();
     let stdin = io::stdin();
 
     let mut initialnums: Vec<SatEntry> = Vec::new();
-    for row in 0..ORDER_2 {
+    for row in 0..order[2] {
         stdin.read_line(&mut buffer)?;
         initialnums.extend(
             buffer
                 .chars()
-                .take(ORDER_2)
+                .take(order[2])
                 .enumerate()
                 .filter_map(|(i, x)| {
                     if !x.is_ascii() {
@@ -48,7 +76,7 @@ fn parse_input() -> Result<Vec<SatEntry>, Box<dyn std::error::Error>> {
                     };
                     match x {
                         '1'..='9' => Some(SatEntry::OrLine(vec![
-                            (row * ORDER_4 + i * ORDER_2) as isize + x as isize - '0' as isize,
+                            (row * order[4] + i * order[2]) as isize + x as isize - '0' as isize,
                         ])),
                         _ => None,
                     }
@@ -62,15 +90,17 @@ fn parse_input() -> Result<Vec<SatEntry>, Box<dyn std::error::Error>> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let order = Ordah::new(3);
+
     // ROW_SIZE squares, ROW_SIZE entries each, ROW_SIZE possible values each
-    let variables = ORDER_4 * ORDER_2;
+    let variables = order[4] * order[2];
 
-    let initialnums = parse_input()?;
+    let initialnums = parse_input(order)?;
 
-    let single_num_constraints: Vec<_> = (0..ORDER_4 as isize)
-        .flat_map(|cell| single_constraint(cell * ORDER_2 as isize + 1))
+    let single_num_constraints: Vec<_> = (0..order[4] as isize)
+        .flat_map(|cell| single_constraint(order, cell * order[2] as isize + 1))
         .collect();
-    let constraints = sudoku_constraints();
+    let constraints = sudoku_constraints(order);
     println!(
         "{}",
         SatEntry::Parameters(
@@ -91,36 +121,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn sudoku_constraints() -> Vec<SatEntry> {
+fn sudoku_constraints(order: Ordah) -> Vec<SatEntry> {
     let mut constraints = Vec::new();
 
-    for area in 0..ORDER_2 {
-        let (srow, scol) = (area / ORDER, area % ORDER);
-        for num in 0..ORDER_2 as isize {
-            let square_base = ((srow * ORDER_2 + scol) * ORDER_3) as isize + num + 1;
+    for area in 0..order[2] {
+        let (srow, scol) = (area / order[1], area % order[1]);
+        for num in 0..order[2] as isize {
+            let square_base = ((srow * order[2] + scol) * order[3]) as isize + num + 1;
             constraints.push(SatEntry::OrLine(
-                (0..ORDER as isize)
+                (0..order[1] as isize)
                     .flat_map(|row| {
-                        (0..ORDER as isize)
+                        (0..order[1] as isize)
                             .map(|col| {
-                                square_base + col * ORDER_2 as isize + row * ORDER_4 as isize
+                                square_base + col * order[2] as isize + row * order[4] as isize
                             })
                             .collect::<Vec<_>>()
                     })
                     .collect(),
             ));
 
-            let row_base = (area * ORDER_4) as isize + num + 1;
+            let row_base = (area * order[4]) as isize + num + 1;
             constraints.push(SatEntry::OrLine(
-                (0..ORDER_2)
-                    .map(|cell| row_base + (cell * ORDER_2) as isize)
+                (0..order[2])
+                    .map(|cell| row_base + (cell * order[2]) as isize)
                     .collect(),
             ));
 
-            let column_base = (area * ORDER_2) as isize + num + 1;
+            let column_base = (area * order[2]) as isize + num + 1;
             constraints.push(SatEntry::OrLine(
-                (0..ORDER_2)
-                    .map(|cell| column_base + (cell * ORDER_4) as isize)
+                (0..order[2])
+                    .map(|cell| column_base + (cell * order[2]) as isize)
                     .collect(),
             ));
         }
@@ -129,15 +159,15 @@ fn sudoku_constraints() -> Vec<SatEntry> {
     constraints
 }
 
-fn single_constraint(cell_start: isize) -> Vec<SatEntry> {
+fn single_constraint(order: Ordah, cell_start: isize) -> Vec<SatEntry> {
     let mut constraints = vec![SatEntry::OrLine(
-        (0..ORDER_2 as isize)
+        (0..order[2] as isize)
             .map(|num| (cell_start + num))
             .collect(),
     )];
 
-    for i in 0..(ORDER_2 - 1) as isize {
-        for j in i + 1..ORDER_2 as isize {
+    for i in 0..(order[2] - 1) as isize {
+        for j in i + 1..order[2] as isize {
             constraints.push(SatEntry::OrLine(vec![-(cell_start + i), -(cell_start + j)]));
         }
     }
