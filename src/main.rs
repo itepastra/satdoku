@@ -39,17 +39,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .chars()
                 .take(9)
                 .enumerate()
-                .filter_map(|(i, x)| match x {
-                    '1' => Some(SatEntry::OrLine(vec![(row * 81 + i * 9 + 1) as isize])),
-                    '2' => Some(SatEntry::OrLine(vec![(row * 81 + i * 9 + 2) as isize])),
-                    '3' => Some(SatEntry::OrLine(vec![(row * 81 + i * 9 + 3) as isize])),
-                    '4' => Some(SatEntry::OrLine(vec![(row * 81 + i * 9 + 4) as isize])),
-                    '5' => Some(SatEntry::OrLine(vec![(row * 81 + i * 9 + 5) as isize])),
-                    '6' => Some(SatEntry::OrLine(vec![(row * 81 + i * 9 + 6) as isize])),
-                    '7' => Some(SatEntry::OrLine(vec![(row * 81 + i * 9 + 7) as isize])),
-                    '8' => Some(SatEntry::OrLine(vec![(row * 81 + i * 9 + 8) as isize])),
-                    '9' => Some(SatEntry::OrLine(vec![(row * 81 + i * 9 + 9) as isize])),
-                    _ => None,
+                .filter_map(|(i, x)| {
+                    if !x.is_ascii() {
+                        return None;
+                    };
+                    match x {
+                        '1'..='9' => Some(SatEntry::OrLine(vec![
+                            (row * 81 + i * 9) as isize + x as isize - '0' as isize,
+                        ])),
+                        _ => None,
+                    }
                 })
                 .collect::<Vec<_>>(),
         );
