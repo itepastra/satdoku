@@ -7,6 +7,11 @@ enum SatEntry {
     OrLine(Vec<isize>),
 }
 
+const ORDER: usize = 3;
+const ORDER_2: usize = ORDER * ORDER;
+const ORDER_3: usize = ORDER_2 * ORDER;
+const ORDER_4: usize = ORDER_3 * ORDER;
+
 impl std::fmt::Display for SatEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -30,12 +35,12 @@ fn parse_input() -> Result<Vec<SatEntry>, Box<dyn std::error::Error>> {
     let stdin = io::stdin();
 
     let mut initialnums: Vec<SatEntry> = Vec::new();
-    for row in 0..9 {
+    for row in 0..ORDER_2 {
         stdin.read_line(&mut buffer)?;
         initialnums.extend(
             buffer
                 .chars()
-                .take(9)
+                .take(ORDER_2)
                 .enumerate()
                 .filter_map(|(i, x)| {
                     if !x.is_ascii() {
@@ -43,7 +48,7 @@ fn parse_input() -> Result<Vec<SatEntry>, Box<dyn std::error::Error>> {
                     };
                     match x {
                         '1'..='9' => Some(SatEntry::OrLine(vec![
-                            (row * 81 + i * 9) as isize + x as isize - '0' as isize,
+                            (row * ORDER_4 + i * ORDER_2) as isize + x as isize - '0' as isize,
                         ])),
                         _ => None,
                     }
@@ -57,12 +62,13 @@ fn parse_input() -> Result<Vec<SatEntry>, Box<dyn std::error::Error>> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let variables = 9 * 9 * 9; // 9 squares, 9 entries each, 9 possible values each
+    // ROW_SIZE squares, ROW_SIZE entries each, ROW_SIZE possible values each
+    let variables = ORDER_4 * ORDER_2;
 
     let initialnums = parse_input()?;
 
-    let single_num_constraints: Vec<_> = (0..81)
-        .flat_map(|cell| single_constraint(cell * 9 + 1))
+    let single_num_constraints: Vec<_> = (0..ORDER_4 as isize)
+        .flat_map(|cell| single_constraint(cell * ORDER_2 as isize + 1))
         .collect();
     let constraints = sudoku_constraints();
     println!(
@@ -88,30 +94,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn sudoku_constraints() -> Vec<SatEntry> {
     let mut constraints = Vec::new();
 
-    for area in 0..9 {
-        let (srow, scol) = (area / 3, area % 3);
-        for num in 0..9 {
-            let square_base = (srow * 27 + scol * 3) * 9 + num + 1;
-            constraints.push(SatEntry::OrLine(vec![
-                square_base,
-                square_base + 9,
-                square_base + 18,
-                square_base + 81,
-                square_base + 90,
-                square_base + 99,
-                square_base + 162,
-                square_base + 171,
-                square_base + 180,
-            ]));
-
-            let row_base = area * 9 * 9 + num + 1;
+    for area in 0..ORDER_2 {
+        let (srow, scol) = (area / ORDER, area % ORDER);
+        for num in 0..ORDER_2 as isize {
+            let square_base = ((srow * ORDER_2 + scol) * ORDER_3) as isize + num + 1;
             constraints.push(SatEntry::OrLine(
-                (0..9).map(|cell| row_base + cell * 9).collect(),
+                (0..ORDER as isize)
+                    .flat_map(|row| {
+                        (0..ORDER as isize)
+                            .map(|col| {
+                                square_base + col * ORDER_2 as isize + row * ORDER_4 as isize
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .collect(),
             ));
 
-            let column_base = area * 9 + num + 1;
+            let row_base = (area * ORDER_4) as isize + num + 1;
             constraints.push(SatEntry::OrLine(
-                (0..9).map(|cell| column_base + cell * 81).collect(),
+                (0..ORDER_2)
+                    .map(|cell| row_base + (cell * ORDER_2) as isize)
+                    .collect(),
+            ));
+
+            let column_base = (area * ORDER_2) as isize + num + 1;
+            constraints.push(SatEntry::OrLine(
+                (0..ORDER_2)
+                    .map(|cell| column_base + (cell * ORDER_4) as isize)
+                    .collect(),
             ));
         }
     }
@@ -121,11 +131,13 @@ fn sudoku_constraints() -> Vec<SatEntry> {
 
 fn single_constraint(cell_start: isize) -> Vec<SatEntry> {
     let mut constraints = vec![SatEntry::OrLine(
-        (0..9).map(|num| (cell_start + num)).collect(),
+        (0..ORDER_2 as isize)
+            .map(|num| (cell_start + num))
+            .collect(),
     )];
 
-    for i in 0..8 {
-        for j in i + 1..9 {
+    for i in 0..(ORDER_2 - 1) as isize {
+        for j in i + 1..ORDER_2 as isize {
             constraints.push(SatEntry::OrLine(vec![-(cell_start + i), -(cell_start + j)]));
         }
     }
